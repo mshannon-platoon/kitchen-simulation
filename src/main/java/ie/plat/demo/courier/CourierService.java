@@ -52,6 +52,7 @@ public class CourierService {
     }
 
     scheduledFuture.cancel(true);
+
     log.info("Cancelled a courier for orderId: {}", orderId);
   }
 

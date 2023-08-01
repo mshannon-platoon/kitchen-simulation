@@ -1,5 +1,6 @@
 package ie.plat.demo;
 
+import ie.plat.demo.courier.CourierService;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -13,6 +14,7 @@ public class AllocationService {
   private final Map<String, String> allocationMap = new HashMap<>();
 
   private final AtomicInteger wasteCounter = new AtomicInteger();
+
 
   /**
    * I think this whole idea of an allocation map is flawed..
@@ -29,6 +31,14 @@ public class AllocationService {
 
   public String getAllocation(String orderId) {
     return allocationMap.get(orderId);
+  }
+
+  public void removeAllocation(String orderId){
+    allocationMap.remove(orderId);
+
+    log.info("Cancelled courier as orderId: {} has been marked as WASTE", orderId);
+
+    incrementWasteCounter();
   }
 
   public void incrementWasteCounter(){

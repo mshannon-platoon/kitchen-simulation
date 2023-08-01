@@ -1,15 +1,29 @@
 package ie.plat.demo.shelf;
 
+import ie.plat.demo.AllocationService;
+import ie.plat.demo.courier.CourierService;
 import ie.plat.demo.order.CookedOrder;
 import ie.plat.demo.utils.OrderUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class OverflowShelf extends AbstractShelf {
 
-  protected OverflowShelf(Integer maxOrdersOnShelf, Integer shelfModifier) {
+  private final  HotShelf hotShelf;
+  private final ColdShelf coldShelf;
+  private final FrozenShelf frozenShelf;
+  private final AllocationService allocationService;
+
+
+  protected OverflowShelf(Integer maxOrdersOnShelf, Integer shelfModifier, HotShelf hotShelf, ColdShelf coldShelf, FrozenShelf frozenShelf, AllocationService allocationService) {
     super(maxOrdersOnShelf, shelfModifier);
+    this.hotShelf = hotShelf;
+    this.coldShelf = coldShelf;
+    this.frozenShelf = frozenShelf;
+    this.allocationService = allocationService;
   }
 
   @Override
@@ -20,24 +34,52 @@ public class OverflowShelf extends AbstractShelf {
     } else {
       removeOrderClosestToExpiry();
 
-      overflowShelf.put(order.getOrder().id(), order);
+     // overflowShelf.put(order.getOrder().id(), order);
     }
-
-     // orderAllocationService.updateAllocation(CookedOrder);
-
-
-    // orderAllocationService.markOrderAsWaste(CookedOrder)
-
 
     return true;
   }
 
-  @Override
-  public synchronized void cleanShelf(String orderId) {
+  public void reorderShelves(HotShelf hotShelf, ColdShelf coldShelf, FrozenShelf frozenShelf) {
+    this.cleanShelf();
 
-    // this shelf has a different behavior
+    List<String> hotOrders = new ArrayList<>();
+    List<String> coldOrders = new ArrayList<>();
+    List<String> frozenOrders = new ArrayList<>();
 
-    // we need to loop through the whole shelf, and re-allocate based on capacity of each shelf
+    Map<String, CookedOrder> overflowShelf = getShelf();
+    overflowShelf.forEach((key, value) -> {
+      switch (value.getOrder().temp()) {
+        case "hot" -> hotOrders.add(key);
+        case "cold" -> coldOrders.add(key);
+        case "frozen" -> frozenOrders.add(key);
+      }
+    });
+
+    hotOrders.forEach(id -> {
+      CookedOrder hotOrder = overflowShelf.get(id);
+      if(hotShelf.putOrderIfThereIsSpace(hotOrder)){
+        allocationService.putAllocation(id, "hot");
+        overflowShelf.remove(id);
+      }
+    });
+
+    coldOrders.forEach(id -> {
+      CookedOrder coldOrder = overflowShelf.get(id);
+      if(coldShelf.putOrderIfThereIsSpace(coldOrder)){
+        allocationService.putAllocation(id, "cold");
+        overflowShelf.remove(id);
+      }
+    });
+
+    frozenOrders.forEach(id -> {
+      CookedOrder frozenOrder = overflowShelf.get(id);
+      if(frozenShelf.putOrderIfThereIsSpace(frozenOrder)){
+        allocationService.putAllocation(id, "frozen");
+        overflowShelf.remove(id);
+      }
+    });
+
   }
 
   private void removeOrderClosestToExpiry() {
@@ -45,11 +87,24 @@ public class OverflowShelf extends AbstractShelf {
 
     String orderId = OrderUtils.findOldestOrderOnShelf(orderList, getShelfModifier());
 
-    getShelf().remove(orderId);
+    CookedOrder cookedOrder = getShelf().get(orderId);
+    boolean success = switch (cookedOrder.getOrder().temp()) {
+      case "hot" -> hotShelf.putOrderIfThereIsSpace(cookedOrder);
+      case "cold" -> coldShelf.putOrderIfThereIsSpace(cookedOrder);
+      case "frozen" -> frozenShelf.putOrderIfThereIsSpace(cookedOrder);
+      default -> false;
+    };
 
+    if(success){
+      getShelf().remove(orderId);
+      allocationService.putAllocation(orderId, cookedOrder.getOrder().temp());
 
-    // orderAllocationService.markOrderAsWaste(CookedOrder)
-    // orderAllocationService.updateAllocation(CookedOrder);
+      log.info("orderId: {} was reallocated to the {} shelf", orderId, cookedOrder.getOrder().temp());
+
+    } else {
+
+      // we have to remove a random one
+    }
   }
 
 }

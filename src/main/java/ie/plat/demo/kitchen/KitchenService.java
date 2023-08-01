@@ -21,13 +21,13 @@ public class KitchenService {
   }
 
   public void acceptOrder(Order order) {
-    log.info("acceptOrder() - orderId: {}", order.id());
+    //log.info("acceptOrder() - orderId: {}", order.id());
     dispatchCourierForOrder(order.id());
     cookOrder(order);
   }
 
   private void cookOrder(Order order) {
-    log.info("cookOrder() - orderId: {}", order.id());
+    //log.info("cookOrder() - orderId: {}", order.id());
     shelfOrder(new CookedOrder(order, LocalDateTime.now()));
   }
 

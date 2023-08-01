@@ -5,9 +5,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 @Getter
 @Setter
+@Slf4j
 public abstract class AbstractShelf {
 
   private final Integer maxOrdersOnShelf;
@@ -34,8 +36,10 @@ public abstract class AbstractShelf {
     return false;
   }
 
-  public synchronized void cleanShelf(String orderId) {
+  public synchronized void cleanShelf() {
+    log.info("clean shelf before: {}", shelf.size());
     shelf.entrySet().removeIf(entry -> !entry.getValue().isFresh(shelfModifier));
+    log.info("clean shelf after: {}", shelf.size());
   }
 
 }

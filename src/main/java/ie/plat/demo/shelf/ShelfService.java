@@ -1,6 +1,7 @@
 package ie.plat.demo.shelf;
 
 import ie.plat.demo.AllocationService;
+import ie.plat.demo.courier.CourierService;
 import ie.plat.demo.order.CookedOrder;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,16 +20,37 @@ public class ShelfService {
   private final ColdShelf coldShelf = new ColdShelf(10, 1);
 
   private final FrozenShelf frozenShelf = new FrozenShelf(10, 1);
-  private final OverflowShelf overflowShelf = new OverflowShelf(15, 2);
+  private final OverflowShelf overflowShelf;
 
   private final Map<String, Integer> modifierMap = new HashMap<>();
 
   public ShelfService(AllocationService allocationService){
     this.allocationService = allocationService;
+    overflowShelf = new OverflowShelf(15, 2, hotShelf, coldShelf, frozenShelf, allocationService);
     modifierMap.put("hot", 1);
     modifierMap.put("cold", 1);
     modifierMap.put("frozen", 1);
     modifierMap.put("overflow", 2);
+
+    Thread cleanupThread = new Thread(() -> {
+      while(true){
+        try {
+          Thread.sleep(3500);
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+
+        hotShelf.cleanShelf();
+        coldShelf.cleanShelf();
+        frozenShelf.cleanShelf();
+        overflowShelf.reorderShelves(hotShelf, coldShelf, frozenShelf);
+      }
+
+    });
+
+    cleanupThread.setName("Shelf-Cleaning-Thread");
+    cleanupThread.setPriority(Thread.MAX_PRIORITY);
+    cleanupThread.start();
   }
 
   public void allocateShelf(CookedOrder order) {
@@ -53,6 +75,7 @@ public class ShelfService {
       return Optional.of(order);
     }
 
+    log.info("order has gone stale: {}", order.getOrder().id());
     return Optional.empty();
   }
 
